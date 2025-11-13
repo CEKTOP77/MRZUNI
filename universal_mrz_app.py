@@ -35,16 +35,21 @@ def generate_mrz_td3(doc_type, country, nationality,
     # первая строка
     line1 = f"{doc_type}<{country}{lastname}<<{firstname}".ljust(44, "<")[:44]
 
-    # формирование второй строки (тело)
-    optional_data = extra.ljust(14, "<")[:14]
-    body = f"{number}{num_cd}{nationality}{birth}{birth_cd}{sex}{expiry}{exp_cd}{optional_data}"
+     # вторая строка
+    optional = extra.ljust(14, "<")[:14]
+
+    body = f"{number}{n_cd}{nationality}{birth}{b_cd}{sex}{expiry}{e_cd}{optional}"
     final_cd = mrz_check_digit(body)
 
-    # теперь гарантируем длину 44 и ставим финальный чек‑символ последним
-    if len(body) >= 44:
-        line2 = body[:44] + final_cd
-    else:
-        line2 = body.ljust(44, ) + final_cd
+    # здесь принципиальный момент: общая длина второй строки должна быть 44 символа,
+    # где последний (44‑й) – контрольная цифра
+    line2 = body + final_cd
+    if len(line2) > 44:
+        # если тело оказалось длиннее, просто обрезаем ровно до 43 символов и добавляем контрольную
+        line2 = body[:43] + final_cd
+    elif len(line2) < 44:
+        # если короче, дополняем '<' до 43 и ставим контрольную
+        line2 = body.ljust(43, "<") + final_cd
 
     return [line1, line2]
 
