@@ -1,4 +1,5 @@
-
+# coding: utf-8
+import streamlit as st
 st.set_page_config(page_title="Универсальный MRZ генератор", layout="centered")
 
 # === Контрольная цифра (ICAO DOC 9303) ===
