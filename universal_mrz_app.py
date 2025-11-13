@@ -88,7 +88,7 @@ def clear_fields():
         st.session_state[key] = ""
 
 # === Интерфейс Streamlit ===
-st.set_page_config(page_title="Универсальный MRZ генератор", layout="centered")
+st.set_page_config(page_title="Универсальный MRZ генератор", layout="centered")
 st.title("🌍 Универсальный MRZ‑генератор (ICAO DOC 9303)")
 
 format_type = st.selectbox("Формат документа", ["TD3 (Паспорт 2×44)", "TD1 (ID‑карта 3×30)"])
