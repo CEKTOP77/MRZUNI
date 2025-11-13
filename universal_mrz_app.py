@@ -1,19 +1,17 @@
-import streamlit as st
-
-# === Контрольная цифра ICAO DOC 9303 ===
+# === Расчёт контрольной цифры (7‑3‑1 по ICAO DOC 9303) ===
 def mrz_check_digit(data: str) -> str:
-    vals = {**{str(i): i for i in range(10)},
-            **{chr(i + 55): i for i in range(10, 36)},
-            '<': 0}
+    values = {**{str(i): i for i in range(10)},
+              **{chr(i + 55): i for i in range(10, 36)},
+              "<": 0}
     weights = [7, 3, 1]
-    total = sum(vals.get(c, 0) * weights[i % 3] for i, c in enumerate(data))
+    total = sum(values.get(ch, 0) * weights[i % 3] for i, ch in enumerate(data))
     return str(total % 10)
 
-# === ДДММГГ → ГГММДД ===
+# === Преобразование даты ДДММГГ → ГГММДД ===
 def convert_date(d: str) -> str:
     return d[4:6] + d[2:4] + d[0:2] if len(d) == 6 else d
 
-# === Формирование TD3 (Паспорт) ===
+# === Генерация MRZ TD3 (паспорт, 2×44) ===
 def generate_td3(doc_type, country, nationality,
                  lastname, firstname, number,
                  birth, expiry, sex, extra):
@@ -23,42 +21,42 @@ def generate_td3(doc_type, country, nationality,
     number    = number.upper()
     country   = country.upper()
     nationality = nationality.upper()
-    sex = sex.upper()
+    sex = sex.upper() if sex else "<"
     extra = extra.upper().replace(" ", "<")
     birth, expiry = convert_date(birth), convert_date(expiry)
 
-    # контрольные цифры отдельных полей
-    num_cd = mrz_check_digit(number)
+    # Контрольные цифры отдельных полей
+    num_cd   = mrz_check_digit(number)
     birth_cd = mrz_check_digit(birth)
-    exp_cd = mrz_check_digit(expiry)
+    exp_cd   = mrz_check_digit(expiry)
 
-    # -----------------------------------------------------------------
-    # структура второй строки TD3:
-    # [номер документа(9)] [cd1(1)] [нац.(3)] [д.р.(6)] [cd2(1)]
-    # [пол(1)] [оконч.(6)] [cd3(1)] [опц данные(14)] [итоговый CD(2)]
-    # -----------------------------------------------------------------
-
-    optional = extra.ljust(14, "<")[:14]
-    body_no_final = (
-        f"{number}{num_cd}{nationality}"
-        f"{birth}{birth_cd}{sex}{expiry}{exp_cd}{optional}"
-    )
-
-    # считаем общий чек #1 (позиция 43)
-    overall_cd1 = mrz_check_digit(body_no_final)
-
-    # считаем чек #2 (позиция 44) для всей строки с предыдущим checksum
-    overall_cd2 = mrz_check_digit(body_no_final + overall_cd1)
-
-    line2 = (body_no_final + overall_cd1 + overall_cd2)[:44]
-
-    # первая строка
+    # Первая строка
     line1 = f"{doc_type}<{country}{lastname}<<{firstname}"
     line1 = line1[:44].ljust(44, "<")
 
+    # Части второй строки (структура по ICAO DOC 9303)
+    part1 = f"{number}{num_cd}"   # номер + cd
+    part2 = nationality
+    part3 = f"{birth}{birth_cd}"
+    part4 = sex
+    part5 = f"{expiry}{exp_cd}"
+    part6 = extra.ljust(14, "<")[:14]
+
+    # Тело без финальных контрольных чисел
+    body = part1 + part2 + part3 + part4 + part5 + part6
+
+    # 43‑я контрольная цифра — сводная по ключевым полям
+    composite_data = part1 + part3 + part5 + part6
+    check43 = mrz_check_digit(composite_data)
+
+    # 44‑я контрольная цифра — для всей строки вместе с предыдущей
+    check44 = mrz_check_digit(body + check43)
+
+    # Финальная строка MRZ (44 символа)
+    line2 = (body + check43 + check44)[:44]
     return [line1, line2]
 
-# === TD1 (ID‑карта, остаётся как есть) ===
+# === Генерация MRZ TD1 (ID‑карта, 3×30) ===
 def generate_td1(doc_type, country, nationality,
                  lastname, firstname, number,
                  birth, expiry, sex, extra):
@@ -67,7 +65,7 @@ def generate_td1(doc_type, country, nationality,
     number    = number.upper()
     country   = country.upper()
     nationality = nationality.upper()
-    sex = sex.upper()
+    sex = sex.upper() if sex else "<"
     extra = extra.upper().replace(" ", "<")
     birth, expiry = convert_date(birth), convert_date(expiry)
 
@@ -85,17 +83,17 @@ def generate_td1(doc_type, country, nationality,
 
 # === Очистка полей ===
 def clear_fields():
-    for k in ["doc_type","country","nationality","lastname","firstname",
-              "number","birth","expiry","sex","extra"]:
-        st.session_state[k] = ""
+    for key in ["doc_type","country","nationality","lastname","firstname",
+                "number","birth","expiry","sex","extra"]:
+        st.session_state[key] = ""
 
 # === Интерфейс Streamlit ===
-st.set_page_config(page_title="Универсальный MRZ Генератор", layout="centered")
-st.title("🌍 Универсальный MRZ‑генератор (ICAO DOC 9303) — двойная контрольная цифра")
+st.set_page_config(page_title="Универсальный MRZ генератор", layout="centered")
+st.title("🌍 Универсальный MRZ‑генератор (ICAO DOC 9303)")
 
 format_type = st.selectbox("Формат документа", ["TD3 (Паспорт 2×44)", "TD1 (ID‑карта 3×30)"])
-doc_type    = st.text_input("Тип", "P", key="doc_type")
-country     = st.text_input("Страна (3 буквы)", "USA", key="country")
+doc_type    = st.text_input("Тип документа", "P", key="doc_type")
+country     = st.text_input("Код страны выдачи (3 буквы)", "USA", key="country")
 nationality = st.text_input("Гражданство (3 буквы)", "USA", key="nationality")
 lastname    = st.text_input("Фамилия", "HULTON", key="lastname")
 firstname   = st.text_input("Имя", "DAVID NAKAMURA", key="firstname")
@@ -103,7 +101,7 @@ number      = st.text_input("Номер документа", "A09913982", key=
 birth       = st.text_input("Дата рождения (ДДММГГ)", "190383", key="birth")
 expiry      = st.text_input("Дата окончания (ДДММГГ)", "180133", key="expiry")
 sex         = st.selectbox("Пол", ["M","F","<"], index=0, key="sex")
-extra       = st.text_input("Extra Info (до 14 символов)", "534397504<2872", key="extra")
+extra       = st.text_input("Дополнительные данные (до 14 символов)", "534397504<2872", key="extra")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -114,28 +112,25 @@ with col2:
 if gen:
     try:
         if format_type.upper().startswith("TD3"):
-            mrz_lines = generate_td3(doc_type, country, nationality,
-                                     lastname, firstname, number,
-                                     birth, expiry, sex, extra)
+            lines = generate_td3(doc_type, country, nationality,
+                                 lastname, firstname, number,
+                                 birth, expiry, sex, extra)
         else:
-            mrz_lines = generate_td1(doc_type, country, nationality,
-                                     lastname, firstname, number,
-                                     birth, expiry, sex, extra)
+            lines = generate_td1(doc_type, country, nationality,
+                                 lastname, firstname, number,
+                                 birth, expiry, sex, extra)
 
-        st.success("✅ ГАТОВА ЁПТА!")
-        st.code("\n".join(mrz_lines), language="text")
-
+        st.success("✅ MRZ успешно сгенерирован!")
+        st.code("\n".join(lines), language="text")
         st.markdown(
             f"""
-            <div style='border:1px solid #777;padding:15px;background:#eee;width:720px;border-radius:6px;'>
+            <div style='border:1px solid #888;background:#e7e7e7;padding:15px;width:730px;border-radius:6px;'>
               <div style='background:#fff;padding:10px;font-family:Courier New, monospace;'>
                 <pre style='margin:0;font-weight:bold;line-height:1.2em;'>
-{'\n'.join(mrz_lines)}
+{'\n'.join(lines)}
                 </pre>
               </div>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+            """, unsafe_allow_html=True)
     except Exception as e:
         st.error(f"Ошибка: {e}")
