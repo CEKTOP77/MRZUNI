@@ -1,9 +1,9 @@
-# === Расчёт контрольной цифры (7‑3‑1 по ICAO DOC 9303) ===
-def mrz_check_digit(data: str) -> str:
-    values = {**{str(i): i for i in range(10)},
-              **{chr(i + 55): i for i in range(10, 36)},
-              "<": 0}
-    weights = [7, 3, 1]
+# coding: utf-8
+import streamlit as st
+
+st.set_page_config(page_title="Универсальный MRZ генератор",
+                   page_icon="🪪",
+                   layout="centered")
     total = sum(values.get(ch, 0) * weights[i % 3] for i, ch in enumerate(data))
     return str(total % 10)
 
