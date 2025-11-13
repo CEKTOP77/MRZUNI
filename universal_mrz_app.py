@@ -52,6 +52,16 @@ def generate_mrz_td3(doc_type, country, nationality,
         line2 = body.ljust(43, "<") + final_cd
 
     return [line1, line2]
+                         # === Проверка ===
+if __name__ == "__main__":
+    mrz = generate_td3(
+        "P", "USA", "USA",
+        "HULTON", "DAVID NAKAMURA",
+        "A09913982", "190383", "180133", "M", "534397504"
+    )
+    print("\n".join(mrz))
+    print("Длина первой строки:", len(mrz[0]))
+    print("Длина второй строки:", len(mrz[1]))
 
 # === генерация MRZ TD1 ===
 def generate_mrz_td1(doc_type, country, nationality,
