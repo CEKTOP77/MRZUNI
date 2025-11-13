@@ -120,7 +120,7 @@ if gen:
                                  lastname, firstname, number,
                                  birth, expiry, sex, extra)
 
-        st.success("✅ MRZ успешно сгенерирован!")
+        st.success("✅ ФСЁ!")
         st.code("\n".join(lines), language="text")
         st.markdown(
             f"""
