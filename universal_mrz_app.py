@@ -42,7 +42,7 @@ def generate_mrz_td3(doc_type, country, nationality,
 
     # теперь гарантируем длину 44 и ставим финальный чек‑символ последним
     if len(body) >= 43:
-        line2 = body[:43] + final_cd
+        line2 = body[:42] + final_cd
     else:
         line2 = body.ljust(43, "<") + final_cd
 
