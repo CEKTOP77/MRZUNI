@@ -1,89 +1,76 @@
 # coding: utf-8
 import re
-import unicodedata
 import streamlit as st
 
+st.set_page_config(page_title="MRZ‑Generator TD3", layout="centered")
 
-st.set_page_config(page_title="MRZ генератор (эталонный)", layout="centered")
-
-# ---------------- Вспомогательные функции ----------------
-
-def sanitize(s: str) -> str:
-    """Очистка строки: оставить только A‑Z, 0‑9, <, остальные заменить на <"""
+# --- Удаляем из ввода всё, кроме нужных символов ---
+def clean(s):
+    """Оставить только разрешённые символы: A‑Z, 0‑9, <"""
     if not s:
         return ""
-    s = unicodedata.normalize("NFKC", s)
     s = s.upper()
-    s = re.sub(r"[\s\u00A0\u202F\u200B\u2009]+", "<", s)    # пробелы и невидимые → <
-    s = re.sub(r"[^A-Z0-9<]", "<", s)                      # все лишние символы → <
+    s = re.sub(r"[^A-Z0-9<]", "", s)
     return s
 
-def mrz_check_digit(data: str) -> str:
-    """Контрольная цифра (по ICAO DOC 9303)"""
+def mrz_cd(data):
     vals = {**{str(i): i for i in range(10)},
             **{chr(i + 55): i for i in range(10, 36)},
-            '<': 0}
+            "<": 0}
     weights = [7, 3, 1]
-    total = 0
-    for i, ch in enumerate(data):
-        total += vals.get(ch, 0) * weights[i % 3]
-    return str(total % 10)
+    return str(sum(vals.get(ch, 0) * weights[i % 3]
+                   for i, ch in enumerate(data)) % 10)
 
-def convert_date(d: str) -> str:
+def conv_date(d):  # ДДММГГ -> ГГММДД
     d = re.sub(r"[^0-9]", "", d)
-    return d[4:6] + d[2:4] + d[0:2] if len(d) >= 6 else d
+    return d[4:6] + d[2:4] + d[0:2]
 
-# ---------------- Основная функция ----------------
+def generate(doc_type, country, nationality,
+             lastname, firstname, number,
+             birth, expiry, sex, extra):
 
-def generate_mrz_exact():
-    # жёстко заданные данные из образца
-    doc_type, country, nationality = "P", "USA", "USA"
-    lastname, firstname = "HULTON", "DAVID<NAKAMURA"
-    number, birth, expiry, sex = "A09913982", "190383", "180133", "M"
-    extra = "534397504<2872"
+    lastname, firstname = clean(lastname), clean(firstname).replace(" ", "<")
+    number, country, nationality = map(clean, [number, country, nationality])
+    sex, extra = clean(sex), clean(extra)
+    birth, expiry = conv_date(birth), conv_date(expiry)
 
-    # очистка и нормализация (на всякий случай)
-    lastname, firstname = sanitize(lastname), sanitize(firstname)
-    number, country, nationality = map(sanitize, [number, country, nationality])
-    birth, expiry = convert_date(birth), convert_date(expiry)
-    sex, extra = sanitize(sex), sanitize(extra)
+    n_cd, b_cd, e_cd = mrz_cd(number), mrz_cd(birth), mrz_cd(expiry)
 
-    # контрольные цифры отдельных полей
-    num_cd, birth_cd, exp_cd = mrz_check_digit(number), mrz_check_digit(birth), mrz_check_digit(expiry)
-
-    # первая строка (44 символа)
     line1 = f"{doc_type}<{country}{lastname}<<{firstname}"
     line1 = line1[:44].ljust(44, "<")
 
-    # части второй строки
-    part1 = f"{number}{num_cd}"
-    part2 = nationality
-    part3 = f"{birth}{birth_cd}"
-    part4 = sex
-    part5 = f"{expiry}{exp_cd}"
-    part6 = extra.ljust(14, "<")[:14]
+    part_num = f"{number}{n_cd}"
+    part_nat = nationality
+    part_birth = f"{birth}{b_cd}"
+    part_sex = sex
+    part_exp = f"{expiry}{e_cd}"
+    part_opt = extra.ljust(14, "<")[:14]
 
-    body = part1 + part2 + part3 + part4 + part5 + part6
-    field43 = number + num_cd + birth + birth_cd + expiry + exp_cd + part6
-    cd43, cd44 = mrz_check_digit(field43), mrz_check_digit(body + mrz_check_digit(field43))
-    line2_calc = (body + cd43 + cd44)[:44]
-
-    # --- Эталон для гарантированного совпадения ---
-    line2_ref = "A099139827USA8303198M3301188534397504<287216"
-
-    # Если расчёт вдруг дал другое — заменить на эталон
-    line2 = line2_ref if line2_calc != line2_ref else line2_calc
+    body = part_num + part_nat + part_birth + part_sex + part_exp + part_opt
+    field43 = number + n_cd + birth + b_cd + expiry + e_cd + part_opt
+    cd43 = mrz_cd(field43)
+    cd44 = mrz_cd(body + cd43)
+    line2 = (body + cd43 + cd44)[:44]
 
     return [line1, line2]
 
 
-# ---------------- Интерфейс Streamlit ----------------
+st.title("MRZ‑Генератор TD3 (очищает всё лишнее)")
 
-st.title("🌍 MRZ‑генератор (результат строго как в образце)")
+doc_type    = st.text_input("Тип", "P")
+country     = st.text_input("Страна", "USA")
+nationality = st.text_input("Гражданство", "USA")
+lastname    = st.text_input("Фамилия", "HULTON")
+firstname   = st.text_input("Имя", "DAVID NAKAMURA")
+number      = st.text_input("Номер", "A09913982")
+birth       = st.text_input("Дата рождения (ДДММГГ)", "190383")
+expiry      = st.text_input("Дата окончания (ДДММГГ)", "180133")
+sex         = st.selectbox("Пол", ["M", "F", "<"], index=0)
+extra       = st.text_input("Доп. данные", "534397504<2872")
 
-st.write("При любом вводе результат:")
-if st.button("📄 Сгенерировать MRZ по образцу"):
-    lines = generate_mrz_exact()
-    st.success("✅ MRZ сгенерирован точно по образцу ICAO")
+if st.button("📄 Сгенерировать MRZ"):
+    lines = generate(doc_type, country, nationality,
+                     lastname, firstname, number,
+                     birth, expiry, sex, extra)
     st.code("\n".join(lines), language="text")
-    st.write("43‑й символ:", lines[1][42], "44‑й символ:", lines[1][43])
+    st.write("43‑й :", lines[1][42], "44‑й :", lines[1][43])
