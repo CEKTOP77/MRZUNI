@@ -16,49 +16,73 @@ def convert_date(d: str) -> str:
     return d[4:6] + d[2:4] + d[0:2] if len(d) == 6 else d
 
 # === Генерация TD3 (паспорт) ===
-def generate_td3(doc_type, country, nationality,
-                 lastname, firstname, number,
-                 birth, expiry, sex, extra):
+def mrz_check_digit(data: str) -> str:
+    vals = {**{str(i): i for i in range(10)},
+            **{chr(i + 55): i for i in range(10, 36)},
+            '<': 0}
+    weights = [7, 3, 1]
+    return str(sum(vals.get(ch, 0) * weights[i % 3]
+                   for i, ch in enumerate(data)) % 10)
 
-    # нормализация
+
+def convert_date(d: str) -> str:
+    return d[4:6] + d[2:4] + d[0:2]
+
+
+def generate_mrz_td3(doc_type, country, nationality,
+                     lastname, firstname, number,
+                     birth, expiry, sex, optional):
+
     lastname  = lastname.upper().replace(" ", "<")
-    firstname = firstname.upper().replace(" ", "<").replace("<<", "<")
+    firstname = firstname.upper().replace(" ", "<")
     number    = number.upper()
     country   = country.upper()
     nationality = nationality.upper()
     sex = sex.upper()
-    extra = extra.upper().replace(" ", "<")
+    optional = optional.upper().replace(" ", "<")
     birth, expiry = convert_date(birth), convert_date(expiry)
 
-    # индивидуальные контрольные цифры
+    # индивидуальные контрольные
     num_cd   = mrz_check_digit(number)
     birth_cd = mrz_check_digit(birth)
     exp_cd   = mrz_check_digit(expiry)
 
     # первая строка
-    line1 = f"{doc_type}<{country}{lastname}<<{firstname}"
-    line1 = line1[:44].ljust(44, "<")
+    line1 = f"{doc_type}<{country}{lastname}<<{firstname}".ljust(44, "<")[:44]
 
     # части второй строки
-    part_num   = f"{number}{num_cd}"
-    part_nat   = nationality
-    part_birth = f"{birth}{birth_cd}"
-    part_sex   = sex
-    part_exp   = f"{expiry}{exp_cd}"
-    part_opt   = extra.ljust(14, "<")[:14]
+    part1 = f"{number}{num_cd}"       # номер + cd1
+    part2 = nationality               # гражданство
+    part3 = f"{birth}{birth_cd}"      # дата рожд + cd2
+    part4 = sex
+    part5 = f"{expiry}{exp_cd}"       # срок + cd3
+    part6 = optional.ljust(14, "<")[:14]
 
-    # тело без финальных CD
-    body = part_num + part_nat + part_birth + part_sex + part_exp + part_opt
+    # тело строки без заключительных контрольных цифр
+    body = part1 + part2 + part3 + part4 + part5 + part6
 
-    # ПРАВИЛЬНО: 43‑я контрольная = контроль(N+cd + DOB+cd + EXP+cd + optional)
-    field43 = f"{number}{num_cd}{birth}{birth_cd}{expiry}{exp_cd}{part_opt}"
+    # правильная формула для 43-й позиции
+    field43 = number + num_cd + birth + birth_cd + expiry + exp_cd + part6
     cd43 = mrz_check_digit(field43)
 
-    # 44‑я контрольная для всей строки (body + 43)
+    # контроль всей строки (44-я позиция)
     cd44 = mrz_check_digit(body + cd43)
 
     line2 = (body + cd43 + cd44)[:44]
     return [line1, line2]
+
+
+# Проверка
+if __name__ == "__main__":
+    mrz = generate_mrz_td3(
+        "P", "USA", "USA",
+        "HULTON", "DAVID NAKAMURA",
+        "A09913982",
+        "190383", "180133", "M", "534397504<2872"
+    )
+    for l in mrz:
+        print(l)
+    print("длина:", len(mrz[1]), "| 43:", mrz[1][42], "| 44:", mrz[1][43])
 
 # === TD1 для ID‑карт ===
 def generate_td1(doc_type, country, nationality,
