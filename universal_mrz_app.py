@@ -68,8 +68,7 @@ def generate_td3(doc_type, country, nationality,
     # Добавляем символ пола в расчёт 43‑ей контрольной цифры
     # Правильно по ICAO: номер + cd + birth + cd + sex + expiry + cd + optional
     # по ICAO: номер + cd + дата рождения + cd + дата окончания + cd + optional
-field43 = number + num_cd + birth + birth_cd + expiry + exp_cd + part_opt
-    cd43 = mrz_check_digit(field43)
+    field43 = number + num_cd + birth + birth_cd + expiry + exp_cd + part_opt
 
     # 44‑я контрольная (вся строка целиком + предыдущая)
     cd44 = mrz_check_digit(body + cd43)
