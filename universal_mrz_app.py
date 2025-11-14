@@ -86,7 +86,7 @@ if st.button("📄 Сгенерировать MRZ"):
                              lastname, firstname, number,
                              birth, expiry, sex, extra)
 
-        st.success("✅ MRZ успешно сгенерирован")
+        st.success("✅  ")
         st.code("\n".join(lines), language="text")
 
         # форматированный вывод, как на паспорте
