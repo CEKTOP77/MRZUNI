@@ -86,6 +86,6 @@ if st.button("📄 Сгенерировать MRZ"):
     lines = generate_td3(doc_type, country, nationality,
                          lastname, firstname, number,
                          birth, expiry, sex, extra)
-    st.success("✅ Сгенерировано")
+    st.success("✅ Сге!!!!ировано")
     st.code("\n".join(lines), language="text")
     st.write("43‑й символ:", lines[1][42], "44‑й символ:", lines[1][43])
