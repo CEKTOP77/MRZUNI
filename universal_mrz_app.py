@@ -69,7 +69,10 @@ def generate_mrz_td3(doc_type, country, nationality,
     part_sex = sex
     part_exp = f"{expiry}{cd_expiry}"
     part_opt = optional.ljust(14, "<")[:14]
-
+# перед вычислением контрольной цифры
+field43 = re.sub(r"[^A-Z0-9<]", "", field43)
+cd43 = mrz_check_digit(field43)
+                         
     body = part_num + part_nat + part_birth + part_sex + part_exp + part_opt
 
     # 43‑я контрольная: номер + cd + рожд + cd + окончание + cd + optional
